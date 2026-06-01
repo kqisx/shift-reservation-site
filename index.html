@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>シフト予約サイト</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <form id="loginForm" class="login-card">
+      <p class="eyebrow">派遣スタッフ向け</p>
+      <h1>シフト予約ログイン</h1>
+      <p class="login-help">スタッフは自分の希望を送信・確認できます。管理者は全員分を確認できます。</p>
+
+      <label class="field" for="loginId">
+        スタッフID
+        <input id="loginId" type="text" placeholder="登録したスタッフID" autocomplete="username" required>
+      </label>
+
+      <label class="field" for="loginPassword">
+        パスワード
+        <input id="loginPassword" type="password" placeholder="仮ログイン用パスワード" autocomplete="current-password" required>
+      </label>
+
+      <button class="primary-button" type="submit">ログイン</button>
+      <p id="loginMessage" class="login-message" aria-live="polite"></p>
+
+      <button id="showRegisterButton" class="text-button" type="button">新規登録はこちら</button>
+      <p id="registrationCompleteMessage" class="message complete hidden" aria-live="polite">登録が完了しました。スタッフIDとパスワードでログインしてください。</p>
+    </form>
+  </section>
+
+  <section id="registerScreen" class="login-screen hidden">
+    <form id="registerForm" class="login-card">
+      <p class="eyebrow">初めて利用する方</p>
+      <h1>新規登録</h1>
+      <p class="login-help">スタッフIDとパスワードはご自身で決めてください。</p>
+
+      <label class="field" for="registerName">
+        本名
+        <input id="registerName" type="text" placeholder="例：山田 太郎" autocomplete="name" required>
+      </label>
+
+      <label class="field" for="registerEmail">
+        メールアドレス
+        <input id="registerEmail" type="email" placeholder="example@example.com" autocomplete="email" required>
+      </label>
+
+      <label class="field" for="registerStaffId">
+        スタッフID
+        <input id="registerStaffId" type="text" placeholder="例：staff001" autocomplete="username" required>
+      </label>
+
+      <label class="field" for="registerPassword">
+        パスワード
+        <input id="registerPassword" type="password" autocomplete="new-password" required>
+      </label>
+
+      <label class="field" for="registerPasswordConfirm">
+        パスワード確認
+        <input id="registerPasswordConfirm" type="password" autocomplete="new-password" required>
+      </label>
+
+      <button class="primary-button" type="submit">登録する</button>
+      <button id="backToLoginButton" class="text-button" type="button">ログイン画面に戻る</button>
+      <p id="registerMessage" class="login-message" aria-live="polite"></p>
+    </form>
+  </section>
+
+  <main class="app">
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">派遣スタッフ向け</p>
+        <h1 id="pageTitle">シフト予約</h1>
+      </div>
+      <div class="header-actions">
+        <p id="currentUserLabel" class="month-label"></p>
+        <button id="logoutButton" class="secondary-button" type="button">ログアウト</button>
+      </div>
+    </header>
+
+    <section class="month-selector" aria-label="表示月選択">
+      <label class="field" for="staffMonth">
+        表示月
+        <input id="staffMonth" type="month">
+      </label>
+      <p id="editStatus" class="edit-status"></p>
+    </section>
+
+    <nav class="tabs" aria-label="画面切り替え">
+      <button class="tab-button active" type="button" data-view="staffView">スタッフ</button>
+      <button class="tab-button" type="button" data-view="changeView">変更申請</button>
+      <button class="tab-button" type="button" data-view="adminView">管理者</button>
+    </nav>
+
+    <section id="staffView" class="view active">
+      <section class="panel mypage-panel">
+        <div>
+          <p class="eyebrow">スタッフ用マイページ</p>
+          <h2 id="mypageTitle">自分のシフト希望</h2>
+        </div>
+        <div id="mySubmissionList" class="submission-list"></div>
+      </section>
+
+      <form id="shiftForm" class="panel">
+        <h2 id="shiftFormTitle">希望を送信</h2>
+
+        <label class="field" for="staffName">
+          名前
+          <input id="staffName" type="text" placeholder="例：山田 太郎" required>
+        </label>
+
+        <section class="picker-section">
+          <h3>出勤可能日</h3>
+          <div id="availableDays" class="day-grid" aria-label="出勤可能日"></div>
+        </section>
+
+        <section class="picker-section">
+          <h3>休み希望日</h3>
+          <div id="offDays" class="day-grid" aria-label="休み希望日"></div>
+        </section>
+
+        <button id="shiftSubmitButton" class="primary-button" type="submit">送信する</button>
+        <p id="shiftMessage" class="message" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="changeView" class="view">
+      <form id="changeForm" class="panel">
+        <h2>急な変更申請</h2>
+
+        <label class="field" for="changeName">
+          名前
+          <input id="changeName" type="text" placeholder="例：山田 太郎" required>
+        </label>
+
+        <label class="field" for="changeDate">
+          対象日
+          <input id="changeDate" type="date" required>
+        </label>
+
+        <fieldset class="choice-group">
+          <legend>変更内容</legend>
+          <label>
+            <input type="radio" name="changeType" value="出勤→休み" checked>
+            出勤→休み
+          </label>
+          <label>
+            <input type="radio" name="changeType" value="休み→出勤">
+            休み→出勤
+          </label>
+        </fieldset>
+
+        <button id="changeSubmitButton" class="primary-button" type="submit">変更申請を送信</button>
+        <p id="changeMessage" class="message" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="adminView" class="view">
+      <div class="panel">
+        <div class="section-header">
+          <h2>管理者画面</h2>
+          <button id="clearButton" class="secondary-button danger" type="button">全データ削除</button>
+        </div>
+
+        <section class="admin-section">
+          <label class="field" for="adminMonth">
+            集計対象月
+            <input id="adminMonth" type="month">
+          </label>
+          <h3>月ごとの集計</h3>
+          <div id="summaryList" class="summary-list"></div>
+        </section>
+
+        <section class="admin-section">
+          <h3>送信内容一覧</h3>
+          <div id="submissionList" class="submission-list"></div>
+        </section>
+
+        <section class="admin-section">
+          <h3>変更申請一覧</h3>
+          <div id="changeList" class="submission-list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-config.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
