@@ -112,13 +112,16 @@
         </label>
 
         <section class="picker-section">
-          <h3>出勤可能日</h3>
-          <div id="availableDays" class="day-grid" aria-label="出勤可能日"></div>
-        </section>
-
-        <section class="picker-section">
-          <h3>休み希望日</h3>
-          <div id="offDays" class="day-grid" aria-label="休み希望日"></div>
+          <div class="calendar-header">
+            <h3>希望日を選択</h3>
+            <p>日付をタップすると、未選択 → 出勤可能 → 休み希望 → 未選択 の順に切り替わります。</p>
+          </div>
+          <div class="legend" aria-label="凡例">
+            <span><strong class="legend-mark available">○</strong> 出勤可能</span>
+            <span><strong class="legend-mark off">×</strong> 休み希望</span>
+            <span><strong class="legend-mark empty-mark"></strong> 未選択</span>
+          </div>
+          <div id="shiftCalendar" class="day-grid shift-calendar" aria-label="シフト希望カレンダー"></div>
         </section>
 
         <button id="shiftSubmitButton" class="primary-button" type="submit">送信する</button>

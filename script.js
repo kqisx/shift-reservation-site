@@ -32,8 +32,7 @@ const changeDateInput = document.getElementById("changeDate");
 const shiftSubmitButton = document.getElementById("shiftSubmitButton");
 const changeSubmitButton = document.getElementById("changeSubmitButton");
 const changeTypeInputs = document.querySelectorAll('input[name="changeType"]');
-const availableDays = document.getElementById("availableDays");
-const offDays = document.getElementById("offDays");
+const shiftCalendar = document.getElementById("shiftCalendar");
 const shiftMessage = document.getElementById("shiftMessage");
 const changeMessage = document.getElementById("changeMessage");
 const summaryList = document.getElementById("summaryList");
@@ -254,6 +253,7 @@ const dataApi = {
       name: item.staff_name,
       availableDates: item.available_dates || [],
       offDates: item.off_dates || [],
+      dayStatuses: item.day_statuses || {},
       createdAt: new Date(item.created_at).toLocaleString("ja-JP")
     }));
   },
@@ -270,7 +270,8 @@ const dataApi = {
       staff_name: item.name,
       month_value: item.monthValue,
       available_dates: item.availableDates,
-      off_dates: item.offDates
+      off_dates: item.offDates,
+      day_statuses: item.dayStatuses || {}
     });
 
     if (error) {
@@ -361,8 +362,7 @@ const dataApi = {
 
 let shiftSubmissions = storage.loadShifts();
 let changeRequests = storage.loadChanges();
-let selectedAvailableDates = [];
-let selectedOffDates = [];
+let selectedDayStatuses = {};
 let selectedMonth = getDefaultMonthValue();
 let adminMonth = selectedMonth;
 let currentUser = isSupabaseEnabled ? null : auth.getSession();
@@ -430,40 +430,67 @@ function getTargetDates() {
   return dates;
 }
 
-function renderDayButtons(container, selectedDates, groupName) {
-  container.innerHTML = "";
+function getStatusMark(status) {
+  if (status === "available") {
+    return "○";
+  }
+
+  if (status === "off") {
+    return "×";
+  }
+
+  return "";
+}
+
+function getNextStatus(currentStatus) {
+  if (!currentStatus) {
+    return "available";
+  }
+
+  if (currentStatus === "available") {
+    return "off";
+  }
+
+  return "";
+}
+
+function getDatesByStatus(status) {
+  return Object.entries(selectedDayStatuses)
+    .filter(([, value]) => value === status)
+    .map(([date]) => date)
+    .sort();
+}
+
+function renderShiftCalendar() {
+  shiftCalendar.innerHTML = "";
   const locked = isPastMonth(selectedMonth);
 
   getTargetDates().forEach((date) => {
     const dateText = toDateText(date);
     const button = document.createElement("button");
     const dayOfWeek = date.getDay();
+    const status = selectedDayStatuses[dateText] || "";
 
     button.type = "button";
     button.className = "day-button";
-    button.textContent = date.getDate();
     button.dataset.date = dateText;
-    button.dataset.group = groupName;
     button.disabled = locked;
+    button.setAttribute("aria-label", `${formatDate(dateText)} ${status || "未選択"}`);
+    button.innerHTML = `
+      <span class="day-number">${date.getDate()}</span>
+      <span class="day-state">${getStatusMark(status)}</span>
+    `;
 
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       button.classList.add("weekend");
     }
 
-    if (selectedDates.includes(dateText)) {
-      button.classList.add("selected");
+    if (status) {
+      button.classList.add(status);
     }
 
-    container.appendChild(button);
+    shiftCalendar.appendChild(button);
   });
-}
-
-function toggleDate(dateText, selectedDates) {
-  if (selectedDates.includes(dateText)) {
-    return selectedDates.filter((date) => date !== dateText);
-  }
-
-  return [...selectedDates, dateText].sort();
 }
 
 function handleDayClick(event) {
@@ -471,27 +498,26 @@ function handleDayClick(event) {
     return;
   }
 
-  if (!event.target.classList.contains("day-button")) {
+  const button = event.target.closest(".day-button");
+
+  if (!button) {
     return;
   }
 
-  const dateText = event.target.dataset.date;
-  const groupName = event.target.dataset.group;
+  const dateText = button.dataset.date;
+  const nextStatus = getNextStatus(selectedDayStatuses[dateText]);
 
-  if (groupName === "available") {
-    selectedAvailableDates = toggleDate(dateText, selectedAvailableDates);
-    selectedOffDates = selectedOffDates.filter((date) => date !== dateText);
+  if (nextStatus) {
+    selectedDayStatuses[dateText] = nextStatus;
   } else {
-    selectedOffDates = toggleDate(dateText, selectedOffDates);
-    selectedAvailableDates = selectedAvailableDates.filter((date) => date !== dateText);
+    delete selectedDayStatuses[dateText];
   }
 
-  renderPickers();
+  renderShiftCalendar();
 }
 
 function renderPickers() {
-  renderDayButtons(availableDays, selectedAvailableDates, "available");
-  renderDayButtons(offDays, selectedOffDates, "off");
+  renderShiftCalendar();
 }
 
 function renderMonthState() {
@@ -532,8 +558,7 @@ function renderMonthState() {
 function switchMonth(monthValue) {
   selectedMonth = monthValue;
   adminMonth = monthValue;
-  selectedAvailableDates = [];
-  selectedOffDates = [];
+  selectedDayStatuses = {};
   shiftMessage.textContent = "";
   shiftMessage.classList.remove("complete");
   changeMessage.textContent = "";
@@ -550,6 +575,37 @@ function createTags(dates, className = "") {
   return dates
     .map((date) => `<span class="tag ${className}">${formatDate(date)}</span>`)
     .join("");
+}
+
+function createStatusTags(item) {
+  if (!item.dayStatuses || Object.keys(item.dayStatuses).length === 0) {
+    return `
+      <div>
+        <p class="muted">出勤可能日</p>
+        <div class="tag-list">${createTags(item.availableDates)}</div>
+      </div>
+      <div>
+        <p class="muted">休み希望日</p>
+        <div class="tag-list">${createTags(item.offDates, "off")}</div>
+      </div>
+    `;
+  }
+
+  const tags = Object.entries(item.dayStatuses)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, status]) => {
+      const mark = status === "available" ? "○" : "×";
+      const className = status === "available" ? "" : "off";
+      return `<span class="tag ${className}">${formatDate(date)} ${mark}</span>`;
+    })
+    .join("");
+
+  return `
+    <div>
+      <p class="muted">回答内容</p>
+      <div class="tag-list">${tags || '<span class="muted">未選択</span>'}</div>
+    </div>
+  `;
 }
 
 function renderMySubmissions() {
@@ -576,14 +632,7 @@ function renderMySubmissions() {
           <strong>${item.name}</strong>
           <span class="muted">${item.createdAt}</span>
         </div>
-        <div>
-          <p class="muted">出勤可能日</p>
-          <div class="tag-list">${createTags(item.availableDates)}</div>
-        </div>
-        <div>
-          <p class="muted">休み希望日</p>
-          <div class="tag-list">${createTags(item.offDates, "off")}</div>
-        </div>
+        ${createStatusTags(item)}
       </article>
     `)
     .join("");
@@ -612,8 +661,9 @@ async function submitShift(event) {
     monthValue: selectedMonth,
     staffId: currentUser ? currentUser.id : "",
     name,
-    availableDates: selectedAvailableDates,
-    offDates: selectedOffDates,
+    availableDates: getDatesByStatus("available"),
+    offDates: getDatesByStatus("off"),
+    dayStatuses: selectedDayStatuses,
     createdAt: new Date().toLocaleString("ja-JP")
   };
 
@@ -625,8 +675,7 @@ async function submitShift(event) {
     return;
   }
 
-  selectedAvailableDates = [];
-  selectedOffDates = [];
+  selectedDayStatuses = {};
   shiftForm.reset();
   renderPickers();
   renderMySubmissions();
@@ -733,14 +782,7 @@ function renderSubmissions() {
           <span class="muted">${item.createdAt}</span>
         </div>
         <p class="muted">${item.month}</p>
-        <div>
-          <p class="muted">出勤可能日</p>
-          <div class="tag-list">${createTags(item.availableDates)}</div>
-        </div>
-        <div>
-          <p class="muted">休み希望日</p>
-          <div class="tag-list">${createTags(item.offDates, "off")}</div>
-        </div>
+        ${createStatusTags(item)}
       </article>
     `)
     .join("");
@@ -853,8 +895,7 @@ tabs.forEach((tab) => {
   tab.addEventListener("click", () => switchView(tab.dataset.view));
 });
 
-availableDays.addEventListener("click", handleDayClick);
-offDays.addEventListener("click", handleDayClick);
+shiftCalendar.addEventListener("click", handleDayClick);
 shiftForm.addEventListener("submit", submitShift);
 changeForm.addEventListener("submit", submitChange);
 

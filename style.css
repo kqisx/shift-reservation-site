@@ -221,17 +221,73 @@ input:disabled {
 
 .picker-section {
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+.calendar-header {
+  display: grid;
+  gap: 6px;
+}
+
+.calendar-header p {
+  margin: 0;
+  color: #66727f;
+  line-height: 1.6;
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 12px;
+  background: #f5f7f8;
+  border: 1px solid #dfe6ea;
+  border-radius: 8px;
+}
+
+.legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.legend-mark {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  font-size: 18px;
+}
+
+.legend-mark.available {
+  color: #ffffff;
+  background: #06c755;
+}
+
+.legend-mark.off {
+  color: #ffffff;
+  background: #ef4444;
+}
+
+.empty-mark {
+  background: #ffffff;
+  border: 1px solid #cfd8de;
 }
 
 .day-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 7px;
+  gap: 8px;
 }
 
 .day-button {
-  min-height: 44px;
+  min-height: 64px;
+  display: grid;
+  place-items: center;
+  gap: 3px;
+  padding: 8px 4px;
   border: 1px solid #d8e0e5;
   border-radius: 8px;
   color: #1d252d;
@@ -239,18 +295,28 @@ input:disabled {
   font-weight: 700;
 }
 
-.day-button.selected {
+.day-button.available {
   color: #ffffff;
   background: #06c755;
   border-color: #06c755;
+}
+
+.day-button.off {
+  color: #ffffff;
+  background: #ef4444;
+  border-color: #ef4444;
 }
 
 .day-button.weekend {
   background: #f8fafc;
 }
 
-.day-button.selected.weekend {
+.day-button.available.weekend {
   background: #05ad4b;
+}
+
+.day-button.off.weekend {
+  background: #dc2626;
 }
 
 .day-button:disabled {
@@ -258,6 +324,17 @@ input:disabled {
   background: #edf1f3;
   border-color: #dfe6ea;
   cursor: not-allowed;
+}
+
+.day-number {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.day-state {
+  min-height: 26px;
+  font-size: 25px;
+  line-height: 1;
 }
 
 .choice-group {
@@ -438,8 +515,12 @@ input:disabled {
   }
 
   .day-button {
-    min-height: 42px;
+    min-height: 62px;
     font-size: 15px;
+  }
+
+  .day-state {
+    font-size: 24px;
   }
 
   .section-header {

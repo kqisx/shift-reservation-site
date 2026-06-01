@@ -27,8 +27,12 @@ create table if not exists public.shift_submissions (
   month_value text not null,
   available_dates date[] not null default '{}',
   off_dates date[] not null default '{}',
+  day_statuses jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.shift_submissions
+add column if not exists day_statuses jsonb not null default '{}'::jsonb;
 
 create table if not exists public.change_requests (
   id uuid primary key default gen_random_uuid(),
