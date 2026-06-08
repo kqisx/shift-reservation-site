@@ -2,7 +2,7 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text unique not null,
   staff_id text unique not null,
-  display_name text not null,
+  name text not null,
   role text not null default 'staff' check (role in ('staff', 'admin')),
   created_at timestamptz not null default now()
 );
@@ -22,13 +22,27 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  profile_name text;
+  profile_staff_id text;
 begin
-  insert into public.profiles (id, email, staff_id, display_name, role)
+  profile_name := coalesce(
+    new.raw_user_meta_data->>'display_name',
+    new.raw_user_meta_data->>'name',
+    new.email
+  );
+
+  profile_staff_id := coalesce(
+    new.raw_user_meta_data->>'staff_id',
+    split_part(new.email, '@', 1)
+  );
+
+  insert into public.profiles (id, email, staff_id, name, role)
   values (
     new.id,
     new.email,
-    coalesce(new.raw_user_meta_data->>'staff_id', split_part(new.email, '@', 1)),
-    coalesce(new.raw_user_meta_data->>'display_name', new.email),
+    profile_staff_id,
+    profile_name,
     'staff'
   );
   return new;
@@ -123,6 +137,14 @@ on public.shift_submissions
 for insert
 to authenticated
 with check (user_id = auth.uid());
+
+drop policy if exists "shift_update_own_or_admin" on public.shift_submissions;
+create policy "shift_update_own_or_admin"
+on public.shift_submissions
+for update
+to authenticated
+using (user_id = auth.uid() or public.is_admin())
+with check (user_id = auth.uid() or public.is_admin());
 
 drop policy if exists "shift_delete_own_or_admin" on public.shift_submissions;
 create policy "shift_delete_own_or_admin"

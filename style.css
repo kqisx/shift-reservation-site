@@ -415,6 +415,17 @@ input:disabled {
   gap: 10px;
 }
 
+.admin-guide {
+  margin: 0;
+  padding: 12px;
+  color: #047a38;
+  background: #effaf3;
+  border: 1px solid #bfebcf;
+  border-radius: 8px;
+  line-height: 1.6;
+  font-weight: 700;
+}
+
 .summary-list,
 .submission-list {
   display: grid;

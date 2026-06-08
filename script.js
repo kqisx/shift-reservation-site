@@ -67,6 +67,7 @@ const auth = {
   sessionKey: "shiftReservationSession",
   usersKey: "shiftRegisteredStaffUsers",
   adminUser: { id: "admin", name: "管理者", role: "admin", password: "admin123" },
+  lastErrorMessage: "",
 
   loadUsers() {
     return JSON.parse(localStorage.getItem(this.usersKey) || "[]");
@@ -173,6 +174,7 @@ const auth = {
   },
 
   async signInWithSupabase(loginId, password) {
+    this.lastErrorMessage = "";
     let email = loginId.trim();
 
     if (!email.includes("@")) {
@@ -181,6 +183,7 @@ const auth = {
       });
 
       if (error || !data) {
+        this.lastErrorMessage = "スタッフIDが見つかりません。";
         return null;
       }
 
@@ -193,20 +196,26 @@ const auth = {
     });
 
     if (error || !data.user) {
+      this.lastErrorMessage = error ? error.message : "ログインに失敗しました。";
       return null;
     }
 
     const { data: profile } = await supabaseClient
       .from("profiles")
-      .select("id, staff_id, display_name, role")
+      .select("id, staff_id, name, role")
       .eq("id", data.user.id)
       .single();
 
+    if (!profile) {
+      this.lastErrorMessage = "ログインは成功しましたが、profilesに一致するユーザー情報が見つかりません。profiles.idがAuthentication UsersのUser UIDと一致しているか確認してください。";
+      return null;
+    }
+
     return {
       id: data.user.id,
-      staffId: profile ? profile.staff_id : "",
-      name: profile ? profile.display_name : data.user.email,
-      role: profile ? profile.role : "staff",
+      staffId: profile.staff_id || "",
+      name: profile.name || data.user.email,
+      role: (profile.role || "staff").trim().toLowerCase(),
       email: data.user.email
     };
   },
@@ -224,15 +233,19 @@ const auth = {
 
     const { data: profile } = await supabaseClient
       .from("profiles")
-      .select("id, staff_id, display_name, role")
+      .select("id, staff_id, name, role")
       .eq("id", data.session.user.id)
       .single();
 
+    if (!profile) {
+      return null;
+    }
+
     return {
       id: data.session.user.id,
-      staffId: profile ? profile.staff_id : "",
-      name: profile ? profile.display_name : data.session.user.email,
-      role: profile ? profile.role : "staff",
+      staffId: profile.staff_id || "",
+      name: profile.name || data.session.user.email,
+      role: (profile.role || "staff").trim().toLowerCase(),
       email: data.session.user.email
     };
   },
@@ -247,16 +260,16 @@ const auth = {
 };
 
 const supabaseSettings = window.shiftAppConfig ? window.shiftAppConfig.supabase : null;
-const isSupabaseEnabled = Boolean(
+const isSupabaseConfigured = Boolean(
   supabaseSettings &&
   supabaseSettings.enabled &&
-  window.supabase &&
   !supabaseSettings.url.includes("YOUR_PROJECT_ID") &&
   (
     (supabaseSettings.publishableKey && !supabaseSettings.publishableKey.includes("YOUR_SUPABASE_PUBLISHABLE_KEY")) ||
     (supabaseSettings.anonKey && !supabaseSettings.anonKey.includes("YOUR_SUPABASE_ANON_KEY"))
   )
 );
+const isSupabaseEnabled = Boolean(isSupabaseConfigured && window.supabase);
 const supabaseClient = isSupabaseEnabled
   ? window.supabase.createClient(
       supabaseSettings.url,
@@ -265,7 +278,19 @@ const supabaseClient = isSupabaseEnabled
   : null;
 
 const dataApi = {
+  lastErrorMessage: "",
+
+  formatError(error) {
+    if (!error) {
+      return "";
+    }
+
+    return [error.message, error.code].filter(Boolean).join(" / ");
+  },
+
   async loadShifts() {
+    this.lastErrorMessage = "";
+
     if (!isSupabaseEnabled) {
       return storage.loadShifts();
     }
@@ -277,6 +302,7 @@ const dataApi = {
 
     if (error) {
       console.error(error);
+      this.lastErrorMessage = this.formatError(error);
       return [];
     }
 
@@ -294,23 +320,37 @@ const dataApi = {
   },
 
   async saveShift(item) {
+    this.lastErrorMessage = "";
+
     if (!isSupabaseEnabled) {
       shiftSubmissions.push(item);
       storage.saveShifts(shiftSubmissions);
       return true;
     }
 
-    const { error } = await supabaseClient.from("shift_submissions").insert({
+    const payload = {
       user_id: currentUser.id,
       staff_name: item.name,
       month_value: item.monthValue,
       available_dates: item.availableDates,
       off_dates: item.offDates,
       day_statuses: item.dayStatuses || {}
-    });
+    };
+
+    const { data, error } = await supabaseClient
+      .from("shift_submissions")
+      .insert(payload)
+      .select("id")
+      .single();
 
     if (error) {
       console.error(error);
+      this.lastErrorMessage = this.formatError(error);
+      return false;
+    }
+
+    if (!data || !data.id) {
+      this.lastErrorMessage = "Supabaseから保存済みIDが返りませんでした。";
       return false;
     }
 
@@ -319,6 +359,8 @@ const dataApi = {
   },
 
   async loadChanges() {
+    this.lastErrorMessage = "";
+
     if (!isSupabaseEnabled) {
       return storage.loadChanges();
     }
@@ -330,6 +372,7 @@ const dataApi = {
 
     if (error) {
       console.error(error);
+      this.lastErrorMessage = this.formatError(error);
       return [];
     }
 
@@ -344,6 +387,8 @@ const dataApi = {
   },
 
   async saveChange(item) {
+    this.lastErrorMessage = "";
+
     if (!isSupabaseEnabled) {
       changeRequests.push(item);
       storage.saveChanges(changeRequests);
@@ -359,6 +404,7 @@ const dataApi = {
 
     if (error) {
       console.error(error);
+      this.lastErrorMessage = this.formatError(error);
       return false;
     }
 
@@ -705,7 +751,7 @@ async function submitShift(event) {
   const saved = await dataApi.saveShift(submission);
 
   if (!saved) {
-    shiftMessage.textContent = "送信に失敗しました。時間をおいて再度お試しください。";
+    shiftMessage.textContent = `送信に失敗しました: ${dataApi.lastErrorMessage || "原因不明のエラー"}`;
     shiftMessage.classList.remove("complete");
     return;
   }
@@ -750,7 +796,7 @@ async function submitChange(event) {
   const saved = await dataApi.saveChange(changeRequest);
 
   if (!saved) {
-    changeMessage.textContent = "変更申請の送信に失敗しました。時間をおいて再度お試しください。";
+    changeMessage.textContent = `変更申請の送信に失敗しました: ${dataApi.lastErrorMessage || "原因不明のエラー"}`;
     changeMessage.classList.remove("complete");
     return;
   }
@@ -971,12 +1017,17 @@ clearButton.addEventListener("click", async () => {
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
+  if (isSupabaseConfigured && !isSupabaseEnabled) {
+    loginMessage.textContent = "Supabaseライブラリを読み込めていません。ネットワークまたはCDN読み込みを確認してください。";
+    return;
+  }
+
   const session = isSupabaseEnabled
     ? await auth.signInWithSupabase(loginIdInput.value.trim(), loginPasswordInput.value)
     : auth.signIn(loginIdInput.value.trim(), loginPasswordInput.value);
 
   if (!session) {
-    loginMessage.textContent = "ログイン情報が違います。";
+    loginMessage.textContent = auth.lastErrorMessage || "ログイン情報が違います。";
     return;
   }
 
@@ -988,6 +1039,11 @@ loginForm.addEventListener("submit", async (event) => {
 
 registerForm.addEventListener("submit", async (event) => {
   event.preventDefault();
+
+  if (isSupabaseConfigured && !isSupabaseEnabled) {
+    registerMessage.textContent = "Supabaseライブラリを読み込めていないため、登録できません。ネットワークまたはCDN読み込みを確認してください。";
+    return;
+  }
 
   const formValues = {
     name: registerNameInput.value,
