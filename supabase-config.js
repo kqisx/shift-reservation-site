@@ -1,7 +1,7 @@
 window.shiftAppConfig = {
   supabase: {
-    enabled: false,
-    url: "https://YOUR_PROJECT_ID.supabase.co",
-    anonKey: "YOUR_SUPABASE_ANON_KEY"
+    enabled: true,
+    url: "https://jseddjbaklccyqrczbgj.supabase.co",
+    publishableKey: "sb_publishable_PuZ7KJpC8nblBweiacXRNw_oSCV6nbG"
   }
 };

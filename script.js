@@ -114,18 +114,33 @@ const auth = {
   },
 
   async registerWithSupabase({ name, email, staffId, password, passwordConfirm }) {
+    if (name.trim() === "" || email.trim() === "" || staffId.trim() === "" || password === "") {
+      return { ok: false, message: "すべての項目を入力してください。" };
+    }
+
+    if (!this.isValidEmail(email.trim())) {
+      return { ok: false, message: "メールアドレスの形式が正しくありません。" };
+    }
+
     if (password !== passwordConfirm) {
       return { ok: false, message: "パスワード確認が一致しません。" };
     }
 
+    const { data: existingEmail } = await supabaseClient.rpc("get_auth_email_by_staff_id", {
+      target_staff_id: staffId.trim()
+    });
+
+    if (existingEmail) {
+      return { ok: false, message: "このスタッフIDはすでに使われています。" };
+    }
+
     const { data, error } = await supabaseClient.auth.signUp({
-      email,
+      email: email.trim(),
       password,
       options: {
         data: {
-          display_name: name,
-          staff_id: staffId,
-          role: "staff"
+          display_name: name.trim(),
+          staff_id: staffId.trim()
         }
       }
     });
@@ -158,8 +173,22 @@ const auth = {
   },
 
   async signInWithSupabase(loginId, password) {
+    let email = loginId.trim();
+
+    if (!email.includes("@")) {
+      const { data, error } = await supabaseClient.rpc("get_auth_email_by_staff_id", {
+        target_staff_id: email
+      });
+
+      if (error || !data) {
+        return null;
+      }
+
+      email = data;
+    }
+
     const { data, error } = await supabaseClient.auth.signInWithPassword({
-      email: loginId,
+      email,
       password
     });
 
@@ -223,10 +252,16 @@ const isSupabaseEnabled = Boolean(
   supabaseSettings.enabled &&
   window.supabase &&
   !supabaseSettings.url.includes("YOUR_PROJECT_ID") &&
-  !supabaseSettings.anonKey.includes("YOUR_SUPABASE_ANON_KEY")
+  (
+    (supabaseSettings.publishableKey && !supabaseSettings.publishableKey.includes("YOUR_SUPABASE_PUBLISHABLE_KEY")) ||
+    (supabaseSettings.anonKey && !supabaseSettings.anonKey.includes("YOUR_SUPABASE_ANON_KEY"))
+  )
 );
 const supabaseClient = isSupabaseEnabled
-  ? window.supabase.createClient(supabaseSettings.url, supabaseSettings.anonKey)
+  ? window.supabase.createClient(
+      supabaseSettings.url,
+      supabaseSettings.publishableKey || supabaseSettings.anonKey
+    )
   : null;
 
 const dataApi = {
